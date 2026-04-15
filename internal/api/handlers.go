@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/Evge14n/go-sports-hub/internal/metrics"
 	"github.com/Evge14n/go-sports-hub/internal/models"
 	"github.com/Evge14n/go-sports-hub/internal/storage"
 )
@@ -18,13 +19,13 @@ type natsPinger interface {
 }
 
 type Handlers struct {
-	db    *storage.Postgres
-	cache *storage.Redis
+	db    storage.EventStore
+	cache storage.CacheStore
 	nats  natsPinger
 	log   *slog.Logger
 }
 
-func NewHandlers(db *storage.Postgres, cache *storage.Redis, nats natsPinger, log *slog.Logger) *Handlers {
+func NewHandlers(db storage.EventStore, cache storage.CacheStore, nats natsPinger, log *slog.Logger) *Handlers {
 	return &Handlers{db: db, cache: cache, nats: nats, log: log}
 }
 
@@ -42,7 +43,11 @@ func (h *Handlers) ListEvents(w http.ResponseWriter, r *http.Request) {
 		Offset: offset,
 	}
 
-	events, err := h.db.ListEvents(r.Context(), f)
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+
+	events, total, err := h.db.ListEvents(r.Context(), f)
 	if err != nil {
 		h.log.Error("list events", "err", err)
 		writeError(w, http.StatusInternalServerError, "failed to list events")
@@ -55,6 +60,8 @@ func (h *Handlers) ListEvents(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"data":   events,
 		"count":  len(events),
+		"total":  total,
+		"limit":  limit,
 		"offset": offset,
 	})
 }
@@ -62,9 +69,11 @@ func (h *Handlers) ListEvents(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) ListLiveEvents(w http.ResponseWriter, r *http.Request) {
 	cached, err := h.cache.GetCachedLiveEvents(r.Context())
 	if err == nil && cached != nil {
+		metrics.CacheHits.Inc()
 		writeJSON(w, http.StatusOK, map[string]any{"data": cached, "count": len(cached), "source": "cache"})
 		return
 	}
+	metrics.CacheMisses.Inc()
 
 	events, err := h.db.ListLiveEvents(r.Context())
 	if err != nil {
@@ -88,10 +97,12 @@ func (h *Handlers) GetEvent(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
 	if cached, err := h.cache.GetCachedEvent(r.Context(), id); err == nil && cached != nil {
+		metrics.CacheHits.Inc()
 		odds, _ := h.db.GetOddsByEvent(r.Context(), id)
 		writeJSON(w, http.StatusOK, models.EventWithOdds{SportEvent: *cached, Odds: odds})
 		return
 	}
+	metrics.CacheMisses.Inc()
 
 	event, err := h.db.GetEventByID(r.Context(), id)
 	if err != nil {

@@ -1,3 +1,6 @@
 /server
+bin/
 *.exe
 .env
+coverage.out
+coverage.html

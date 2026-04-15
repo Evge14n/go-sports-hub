@@ -64,7 +64,7 @@ func main() {
 	go wsHub.Run(ctx)
 
 	handlers := api.NewHandlers(db, redisStore, natsClient, log)
-	router := api.NewRouter(handlers, wsHub)
+	router := api.NewRouter(handlers, wsHub, log, cfg.AllowedOrigins)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.Port),

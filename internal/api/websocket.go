@@ -10,6 +10,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"github.com/Evge14n/go-sports-hub/internal/metrics"
 	"github.com/Evge14n/go-sports-hub/internal/models"
 	"github.com/Evge14n/go-sports-hub/internal/storage"
 )
@@ -40,13 +41,13 @@ type wsClient struct {
 }
 
 type WSHub struct {
-	cache  *storage.Redis
-	log    *slog.Logger
-	mu     sync.RWMutex
+	cache   storage.CacheStore
+	log     *slog.Logger
+	mu      sync.RWMutex
 	clients map[*wsClient]struct{}
 }
 
-func NewWSHub(cache *storage.Redis, log *slog.Logger) *WSHub {
+func NewWSHub(cache storage.CacheStore, log *slog.Logger) *WSHub {
 	return &WSHub{
 		cache:   cache,
 		log:     log,
@@ -98,6 +99,7 @@ func (h *WSHub) register(c *wsClient) {
 	h.mu.Lock()
 	h.clients[c] = struct{}{}
 	h.mu.Unlock()
+	metrics.ActiveWSConnections.Inc()
 }
 
 func (h *WSHub) unregister(c *wsClient) {
@@ -105,6 +107,7 @@ func (h *WSHub) unregister(c *wsClient) {
 	if _, ok := h.clients[c]; ok {
 		delete(h.clients, c)
 		close(c.send)
+		metrics.ActiveWSConnections.Dec()
 	}
 	h.mu.Unlock()
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/nats-io/nats.go"
 
+	"github.com/Evge14n/go-sports-hub/internal/metrics"
 	"github.com/Evge14n/go-sports-hub/internal/models"
 	"github.com/Evge14n/go-sports-hub/internal/queue"
 	"github.com/Evge14n/go-sports-hub/internal/storage"
@@ -21,8 +22,8 @@ type rawPayload struct {
 }
 
 type Processor struct {
-	db    *storage.Postgres
-	cache *storage.Redis
+	db    storage.EventStore
+	cache storage.CacheStore
 	nats  *queue.Client
 	log   *slog.Logger
 
@@ -30,7 +31,7 @@ type Processor struct {
 	seen map[string]time.Time
 }
 
-func New(db *storage.Postgres, cache *storage.Redis, nats *queue.Client, log *slog.Logger) *Processor {
+func New(db storage.EventStore, cache storage.CacheStore, nats *queue.Client, log *slog.Logger) *Processor {
 	return &Processor{
 		db:    db,
 		cache: cache,
@@ -100,6 +101,7 @@ func (p *Processor) process(ctx context.Context, payload rawPayload) error {
 		}
 	}
 
+	metrics.EventsProcessed.WithLabelValues(e.Sport, e.Status).Inc()
 	return nil
 }
 

@@ -106,39 +106,49 @@ type ListEventsFilter struct {
 	Offset int
 }
 
-func (p *Postgres) ListEvents(ctx context.Context, f ListEventsFilter) ([]models.SportEvent, error) {
-	query := `
-		SELECT id, sport, league, home_team, away_team, start_time, status, home_score, away_score, updated_at, created_at
-		FROM sport_events WHERE 1=1`
+func (p *Postgres) ListEvents(ctx context.Context, f ListEventsFilter) ([]models.SportEvent, int, error) {
+	where := " WHERE 1=1"
 	args := []any{}
 	i := 1
 
 	if f.Sport != "" {
-		query += fmt.Sprintf(" AND sport=$%d", i)
+		where += fmt.Sprintf(" AND sport=$%d", i)
 		args = append(args, f.Sport)
 		i++
 	}
 	if f.League != "" {
-		query += fmt.Sprintf(" AND league=$%d", i)
+		where += fmt.Sprintf(" AND league=$%d", i)
 		args = append(args, f.League)
 		i++
 	}
 	if f.Status != "" {
-		query += fmt.Sprintf(" AND status=$%d", i)
+		where += fmt.Sprintf(" AND status=$%d", i)
 		args = append(args, f.Status)
 		i++
 	}
 
-	query += " ORDER BY start_time DESC"
+	var total int
+	countQuery := "SELECT COUNT(*) FROM sport_events" + where
+	if err := p.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count events: %w", err)
+	}
+
+	query := `
+		SELECT id, sport, league, home_team, away_team, start_time, status, home_score, away_score, updated_at, created_at
+		FROM sport_events` + where + " ORDER BY start_time DESC"
 
 	limit := f.Limit
 	if limit <= 0 || limit > 100 {
 		limit = 50
 	}
 	query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", i, i+1)
-	args = append(args, limit, f.Offset)
+	dataArgs := append(args, limit, f.Offset)
 
-	return p.scanEvents(ctx, query, args...)
+	events, err := p.scanEvents(ctx, query, dataArgs...)
+	if err != nil {
+		return nil, 0, err
+	}
+	return events, total, nil
 }
 
 func (p *Postgres) ListLeagues(ctx context.Context) ([]string, error) {

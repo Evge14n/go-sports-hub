@@ -1,16 +1,28 @@
 package api
 
 import (
+	"log/slog"
+
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	chimw "github.com/go-chi/chi/v5/middleware"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	mw "github.com/Evge14n/go-sports-hub/internal/api/middleware"
+	_ "github.com/Evge14n/go-sports-hub/internal/metrics"
 )
 
-func NewRouter(h *Handlers, ws *WSHub) *chi.Mux {
+func NewRouter(h *Handlers, ws *WSHub, log *slog.Logger, allowedOrigins string) *chi.Mux {
 	r := chi.NewRouter()
 
-	r.Use(middleware.RealIP)
-	r.Use(middleware.RequestID)
-	r.Use(middleware.Recoverer)
+	r.Use(chimw.RealIP)
+	r.Use(chimw.RequestID)
+	r.Use(mw.CORS(allowedOrigins))
+	r.Use(mw.RequestLogger(log))
+	r.Use(mw.RateLimit(100, 200))
+	r.Use(chimw.Recoverer)
+	r.Use(mw.Metrics)
+
+	r.Handle("/metrics", promhttp.Handler())
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/events", h.ListEvents)
