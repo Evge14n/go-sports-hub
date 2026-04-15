@@ -50,7 +50,6 @@ func (c *Client) Publish(subject string, v any) error {
 	return nil
 }
 
-// SubscribeRaw subscribes with direct access to the nats.Msg for custom decoding.
 func (c *Client) SubscribeRaw(subject string, handler nats.MsgHandler) (*nats.Subscription, error) {
 	sub, err := c.conn.Subscribe(subject, handler)
 	if err != nil {
@@ -59,7 +58,6 @@ func (c *Client) SubscribeRaw(subject string, handler nats.MsgHandler) (*nats.Su
 	return sub, nil
 }
 
-// SubscribeChan subscribes to a subject and delivers decoded messages via a typed channel.
 func SubscribeChan[T any](ctx context.Context, c *Client, subject string) (<-chan T, error) {
 	out := make(chan T, 128)
 

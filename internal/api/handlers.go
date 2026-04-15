@@ -13,14 +13,6 @@ import (
 	"github.com/Evge14n/go-sports-hub/internal/storage"
 )
 
-type dbPinger interface {
-	Ping(ctx context.Context) error
-}
-
-type redisPinger interface {
-	Ping(ctx context.Context) error
-}
-
 type natsPinger interface {
 	IsConnected() bool
 }

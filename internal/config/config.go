@@ -5,7 +5,6 @@ import (
 	"strconv"
 )
 
-// Config holds all service configuration loaded from environment variables.
 type Config struct {
 	Port     string
 	DBURL    string

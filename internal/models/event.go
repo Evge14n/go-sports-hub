@@ -30,14 +30,12 @@ type EventWithOdds struct {
 	Odds []Odds `json:"odds"`
 }
 
-// Status constants.
 const (
 	StatusUpcoming = "upcoming"
 	StatusLive     = "live"
 	StatusFinished = "finished"
 )
 
-// Market constants.
 const (
 	Market1X2       = "1x2"
 	MarketOverUnder = "over_under"

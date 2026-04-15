@@ -116,7 +116,6 @@ var (
 	}
 )
 
-// demoState keeps consistent event IDs and scores across ticks.
 var demoState = make(map[string]*models.SportEvent)
 
 func generateDemoData(status string) ([]models.SportEvent, []models.Odds) {
