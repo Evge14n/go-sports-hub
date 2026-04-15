@@ -1,0 +1,49 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_started
+    environment:
+      DB_URL: postgres://sports:sports@postgres:5432/sportsdb?sslmode=disable
+      REDIS_URL: redis:6379
+      NATS_URL: nats://nats:4222
+      DEMO_MODE: "true"
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: sports
+      POSTGRES_PASSWORD: sports
+      POSTGRES_DB: sportsdb
+    volumes:
+      - ./migrations/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sports -d sportsdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  nats:
+    image: nats:2-alpine
+    ports:
+      - "4222:4222"
+
+volumes:
+  pgdata:
